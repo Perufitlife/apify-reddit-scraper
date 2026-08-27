@@ -1,0 +1,12 @@
+{
+    "actorOutputSchemaVersion": 1,
+    "title": "Reddit posts & comments",
+    "properties": {
+        "results": {
+            "type": "string",
+            "title": "Reddit posts & comments",
+            "description": "One row per post or comment.",
+            "template": "{{links.apiDefaultDatasetUrl}}/items"
+        }
+    }
+}

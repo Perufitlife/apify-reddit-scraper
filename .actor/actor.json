@@ -1,0 +1,17 @@
+{
+    "actorSpecification": 1,
+    "name": "reddit-scraper",
+    "title": "Reddit Posts & Comments Scraper — Subreddit Data, Upvotes & Discussions",
+    "version": "0.1",
+    "buildTag": "latest",
+    "defaultMemoryMbytes": 512,
+    "minMemoryMbytes": 256,
+    "maxMemoryMbytes": 16384,
+    "dockerfile": "../Dockerfile",
+    "readme": "../README.md",
+    "input": "./input_schema.json",
+    "storages": {
+        "dataset": "./dataset_schema.json"
+    },
+    "output": "./output_schema.json"
+}

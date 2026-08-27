@@ -1,0 +1,24 @@
+{
+  "name": "reddit-scraper",
+  "version": "1.0.0",
+  "description": "Scrape Reddit posts, comments, and subreddit data. Extract upvotes, authors, discussions, and community content.",
+  "type": "module",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "node src/main.js",
+    "test": "node src/main.js"
+  },
+  "keywords": [
+    "reddit",
+    "posts",
+    "comments",
+    "subreddit",
+    "scraper"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "apify": "^3.6.0",
+    "undici": "^6.21.0"
+  }
+}

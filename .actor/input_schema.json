@@ -1,0 +1,86 @@
+{
+  "title": "Reddit Scraper Input",
+  "description": "Scrape posts and comments from Reddit subreddits or search results.",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "subreddits": {
+      "title": "Subreddits",
+      "type": "array",
+      "description": "Subreddit names to scrape (without r/). E.g., 'technology', 'programming'.",
+      "editor": "stringList",
+      "prefill": [
+        "technology",
+        "programming"
+      ]
+    },
+    "searchQueries": {
+      "title": "Search queries",
+      "type": "array",
+      "description": "Search Reddit for keywords. Note: Reddit does not publish vote counts in its public search feed, so score and upvoteRatio are null for search results (subreddit listings do include them).",
+      "editor": "stringList"
+    },
+    "postUrls": {
+      "title": "Post URLs",
+      "type": "array",
+      "description": "Direct Reddit post URLs to scrape comments from.",
+      "editor": "stringList"
+    },
+    "maxPostsPerSubreddit": {
+      "title": "Max posts per subreddit",
+      "type": "integer",
+      "description": "Maximum number of posts to extract per subreddit.",
+      "default": 100,
+      "minimum": 1,
+      "maximum": 500
+    },
+    "sortBy": {
+      "title": "Sort posts by",
+      "type": "string",
+      "description": "How to sort posts in the subreddit listing.",
+      "editor": "select",
+      "default": "hot",
+      "enum": [
+        "hot",
+        "new",
+        "top",
+        "rising"
+      ]
+    },
+    "timeFilter": {
+      "title": "Time filter (for top sort)",
+      "type": "string",
+      "description": "Time period filter when sorting by top.",
+      "editor": "select",
+      "default": "week",
+      "enum": [
+        "hour",
+        "day",
+        "week",
+        "month",
+        "year",
+        "all"
+      ]
+    },
+    "includeVoteData": {
+      "title": "Include vote data (score, upvote ratio, comment count)",
+      "type": "boolean",
+      "description": "Fetch upvote score, upvote ratio and comment count for subreddit posts. This needs extra requests through residential proxies, so turning it off makes runs noticeably cheaper and faster when you only need titles, authors, dates and post text.",
+      "default": true
+    },
+    "includeComments": {
+      "title": "Include comments",
+      "type": "boolean",
+      "description": "Also extract comments from each post. Reddit does not publish comment scores publicly, so comment score is null.",
+      "default": false
+    },
+    "maxCommentsPerPost": {
+      "title": "Max comments per post",
+      "type": "integer",
+      "description": "Maximum number of comments to extract per post.",
+      "default": 100,
+      "minimum": 1,
+      "maximum": 500
+    }
+  }
+}

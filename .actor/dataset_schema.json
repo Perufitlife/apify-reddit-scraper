@@ -1,0 +1,119 @@
+{
+  "actorSpecification": 1,
+  "fields": {
+    "dataType": { "type": "string", "title": "Type (post/comment)" },
+    "redditId": { "type": "string", "title": "Reddit ID (t3_/t1_)" },
+    "postTitle": { "type": "string", "title": "Post Title" },
+    "author": { "type": "string", "title": "Author" },
+    "subreddit": { "type": "string", "title": "Subreddit" },
+    "score": { "type": "integer", "title": "Score (upvotes) — null when the source feed omits it" },
+    "upvoteRatio": { "type": "number", "title": "Upvote Ratio — null when the source feed omits it" },
+    "commentCount": { "type": "integer", "title": "Comment Count" },
+    "body": { "type": "string", "title": "Post/Comment Body" },
+    "url": { "type": "string", "title": "URL" },
+    "postUrl": { "type": "string", "title": "Post URL" },
+    "createdUtc": { "type": "string", "title": "Created (UTC)" },
+    "flair": { "type": "string", "title": "Flair" },
+    "isStickied": { "type": "boolean", "title": "Stickied" },
+    "parentId": { "type": "string", "title": "Parent Comment ID" },
+    "depth": { "type": "integer", "title": "Comment Depth" },
+    "scrapedAt": { "type": "string", "title": "Scraped At (ISO)" },
+    "postType": { "type": "string", "title": "Post Type" },
+    "domain": { "type": "string", "title": "Link Domain" }
+  },
+  "views": {
+    "overview": {
+      "title": "Overview",
+      "description": "Every post and comment in one table: what was said, by whom, where, and how it performed.",
+      "transformation": {
+        "fields": [
+          "dataType",
+          "subreddit",
+          "postTitle",
+          "author",
+          "score",
+          "commentCount",
+          "body",
+          "createdUtc",
+          "postUrl"
+        ]
+      },
+      "display": {
+        "component": "table",
+        "properties": {
+          "dataType": { "label": "Type", "format": "text" },
+          "subreddit": { "label": "Subreddit", "format": "text" },
+          "postTitle": { "label": "Post title", "format": "text" },
+          "author": { "label": "Author", "format": "text" },
+          "score": { "label": "Upvotes", "format": "number" },
+          "commentCount": { "label": "Comments", "format": "number" },
+          "body": { "label": "Text", "format": "text" },
+          "createdUtc": { "label": "Posted", "format": "date" },
+          "postUrl": { "label": "Permalink", "format": "link" }
+        }
+      }
+    },
+    "posts": {
+      "title": "Posts ranked",
+      "description": "Post-level rows with the engagement metrics, for spotting what is working in a subreddit.",
+      "transformation": {
+        "fields": [
+          "subreddit",
+          "postTitle",
+          "author",
+          "score",
+          "upvoteRatio",
+          "commentCount",
+          "flair",
+          "postType",
+          "domain",
+          "createdUtc",
+          "postUrl"
+        ]
+      },
+      "display": {
+        "component": "table",
+        "properties": {
+          "subreddit": { "label": "Subreddit", "format": "text" },
+          "postTitle": { "label": "Post title", "format": "text" },
+          "author": { "label": "Author", "format": "text" },
+          "score": { "label": "Upvotes", "format": "number" },
+          "upvoteRatio": { "label": "Upvote ratio", "format": "number" },
+          "commentCount": { "label": "Comments", "format": "number" },
+          "flair": { "label": "Flair", "format": "text" },
+          "postType": { "label": "Post type", "format": "text" },
+          "domain": { "label": "Linked domain", "format": "text" },
+          "createdUtc": { "label": "Posted", "format": "date" },
+          "postUrl": { "label": "Permalink", "format": "link" }
+        }
+      }
+    },
+    "comments": {
+      "title": "Comments",
+      "description": "Comment rows with their thread position, for reading a discussion end to end.",
+      "transformation": {
+        "fields": [
+          "subreddit",
+          "author",
+          "body",
+          "depth",
+          "parentId",
+          "createdUtc",
+          "postUrl"
+        ]
+      },
+      "display": {
+        "component": "table",
+        "properties": {
+          "subreddit": { "label": "Subreddit", "format": "text" },
+          "author": { "label": "Author", "format": "text" },
+          "body": { "label": "Comment", "format": "text" },
+          "depth": { "label": "Reply depth", "format": "number" },
+          "parentId": { "label": "Parent ID", "format": "text" },
+          "createdUtc": { "label": "Posted", "format": "date" },
+          "postUrl": { "label": "Thread", "format": "link" }
+        }
+      }
+    }
+  }
+}
