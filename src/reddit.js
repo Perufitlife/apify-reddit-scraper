@@ -28,9 +28,16 @@ export class RedditClient {
     /**
      * @param {{ newUrl: (session?: string) => Promise<string> }} proxyConfiguration
      */
-    constructor(proxyConfiguration, { maxAttempts = 4, requestTimeoutMs = 45000 } = {}) {
+    // Eight attempts, not four. Every attempt draws a NEW residential session, so a
+    // retry is a fresh roll of the dice rather than the same one repeated. A full run
+    // takes ~55s and Apify's automated QA allows 300s, so there were four unused
+    // minutes while a transient block was sinking the whole run.
+    constructor(proxyConfiguration, { maxAttempts = 8, requestTimeoutMs = 45000, deadlineMs = 240000 } = {}) {
         this.proxyConfiguration = proxyConfiguration;
         this.maxAttempts = maxAttempts;
+        // Hard ceiling: however many attempts remain, never overrun the QA budget.
+        // Returning what we have beats dying on a timeout.
+        this.deadline = Date.now() + deadlineMs;
         this.requestTimeoutMs = requestTimeoutMs;
         this.blockedResponses = 0;
         this.requests = 0;
@@ -87,7 +94,12 @@ export class RedditClient {
                 if (agent) agent.close().catch(() => {});
             }
 
-            if (attempt < this.maxAttempts) await sleep(1500 * attempt);
+            if (Date.now() > this.deadline) {
+                lastReason += ' (time budget exhausted, no further retries)';
+                break;
+            }
+            // Growing backoff with a cap: 1.5s, 3s, 4.5s, then a flat 6s.
+            if (attempt < this.maxAttempts) await sleep(Math.min(1500 * attempt, 6000));
         }
 
         throw new Error(`Reddit request failed after ${this.maxAttempts} attempts (${url}) — last: ${lastReason}`);
