@@ -86,7 +86,16 @@ async function scrapeSubreddit(subreddit, limit) {
         if (after) { params.set('after', after); params.set('count', String(posts.length)); }
 
         console.log(`Fetching r/${subreddit} [${sort}] — ${posts.length}/${limit} so far...`);
-        const xml = await client.get(`https://www.reddit.com/r/${subreddit}/${sort}/.rss?${params}`, '<entry>');
+        let xml;
+        try {
+            // The feed gets a short leash: if Reddit is blocking it right now, the
+            // shreddit listing below is a second door that usually stays open.
+            xml = await client.get(`https://www.reddit.com/r/${subreddit}/${sort}/.rss?${params}`, '<entry>', { maxAttempts: 3 });
+        } catch (err) {
+            console.log(`r/${subreddit}: feed blocked (${err.message.split(' — ')[0]}) — switching to the listing endpoint.`);
+            await listingFallback(subreddit, sort, t, limit, posts, seen);
+            break;
+        }
         if (!xml) break;
 
         const page = parseFeed(xml).filter((e) => e.id.startsWith('t3_') && !seen.has(e.id));
@@ -118,7 +127,8 @@ async function scrapeSubreddit(subreddit, limit) {
         after = page[page.length - 1].id;
     }
 
-    if (includeVoteData && posts.length) await enrichVotes(subreddit, sort, t, posts);
+    // Posts that came through the listing endpoint already carry their votes.
+    if (includeVoteData && posts.some((p) => p.score === null)) await enrichVotes(subreddit, sort, t, posts);
 
     for (const post of posts) {
         await Actor.pushData(extractPost(post));
@@ -130,14 +140,56 @@ async function scrapeSubreddit(subreddit, limit) {
     if (!posts.length) failures.push(`r/${subreddit} returned no posts`);
 }
 
+/**
+ * Second door for subreddit listings. On 13-sep Apify's QA run got the full 190 KB
+ * block page on every feed request (15 of 16) and the Actor was flagged, while the
+ * same feed answered normally from other IPs minutes later — blocks come in bursts
+ * and per endpoint. This listing is heavier per post but already carries score,
+ * upvote ratio and comment count, so posts that arrive this way need no enrichment.
+ */
+async function listingFallback(subreddit, sort, t, limit, posts, seen) {
+    let after = posts.length ? cursorFor(posts[posts.length - 1].id) : null;
+    const maxPages = Math.min(40, Math.ceil((limit - posts.length) / 20) + 3);
+
+    for (let page = 0; page < maxPages && posts.length < limit; page++) {
+        const params = new URLSearchParams({ name: subreddit, feedLength: '100' });
+        if (sort === 'top') params.set('t', t.toUpperCase());
+        if (after) params.set('after', after);
+
+        let html;
+        try {
+            html = await client.get(`https://www.reddit.com/svc/shreddit/community-more-posts/${sort}/?${params}`, '<shreddit-post');
+        } catch (err) {
+            console.log(`r/${subreddit}: listing endpoint also blocked (${err.message.split(' — ')[0]}).`);
+            if (!posts.length) failures.push(`r/${subreddit}: ${err.message}`);
+            return;
+        }
+        if (!html) return;
+
+        const listing = parseListing(html).filter((l) => l.id && !seen.has(l.id));
+        if (!listing.length) return;
+        for (const l of listing) {
+            if (posts.length >= limit) break;
+            seen.add(l.id);
+            posts.push(l);
+        }
+
+        const next = cursorFor(listing[listing.length - 1].id);
+        if (!next || next === after) return;
+        after = next;
+    }
+    console.log(`r/${subreddit}: ${posts.length} posts via the listing endpoint (with vote data).`);
+}
+
 /** Fill score / upvoteRatio / commentCount from the shreddit feed, matched by post id. */
 async function enrichVotes(subreddit, sort, t, posts) {
-    const wanted = new Map(posts.map((p) => [p.id, p]));
-    const maxPages = Math.min(14, Math.ceil(posts.length / 20) + 2);
+    const missing = posts.filter((p) => p.score === null);
+    const wanted = new Map(missing.map((p) => [p.id, p]));
+    const maxPages = Math.min(14, Math.ceil(missing.length / 20) + 2);
     let after = null;
     let filled = 0;
 
-    for (let page = 0; page < maxPages && filled < posts.length; page++) {
+    for (let page = 0; page < maxPages && filled < missing.length; page++) {
         const params = new URLSearchParams({ name: subreddit, feedLength: '100' });
         if (sort === 'top') params.set('t', t.toUpperCase());
         if (after) params.set('after', after);

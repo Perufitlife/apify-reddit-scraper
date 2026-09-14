@@ -48,10 +48,10 @@ export class RedditClient {
      * @param {string} url
      * @param {string} marker substring that proves we got a real page
      */
-    async get(url, marker) {
+    async get(url, marker, { maxAttempts = this.maxAttempts } = {}) {
         let lastReason = 'unknown';
 
-        for (let attempt = 1; attempt <= this.maxAttempts; attempt++) {
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
             const session = `s${Math.random().toString(36).slice(2, 10)}`;
             let agent;
 
@@ -99,10 +99,10 @@ export class RedditClient {
                 break;
             }
             // Growing backoff with a cap: 1.5s, 3s, 4.5s, then a flat 6s.
-            if (attempt < this.maxAttempts) await sleep(Math.min(1500 * attempt, 6000));
+            if (attempt < maxAttempts) await sleep(Math.min(1500 * attempt, 6000));
         }
 
-        throw new Error(`Reddit request failed after ${this.maxAttempts} attempts (${url}) — last: ${lastReason}`);
+        throw new Error(`Reddit request failed after ${maxAttempts} attempts (${url}) — last: ${lastReason}`);
     }
 }
 
