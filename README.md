@@ -148,12 +148,7 @@ At least one subreddit, search query, or post URL must be provided.
 
 ## How much does it cost?
 
-This actor uses a pay-per-result pricing model. You are charged for each data record (post or comment) that is successfully extracted.
-
-- **$0.002 per result** -- that is $2.00 per 1,000 records.
-- Scraping 100 posts from a subreddit (without comments) costs approximately **$0.20**.
-- Scraping 1,000 posts (without comments) costs approximately **$2.00**.
-- Scraping 100 posts with 20 comments each (2,100 results) costs approximately **$4.20**.
+This actor uses a pay-per-event pricing model. You are charged a small start fee per run plus a fee for each data record (post or comment) that is successfully extracted. Current rates are shown on the Pricing tab of the Actor page.
 
 There are no monthly subscriptions or minimum commitments. You only pay for the data you extract.
 
