@@ -1,86 +1,92 @@
 {
-  "title": "Reddit Scraper Input",
-  "description": "Scrape posts and comments from Reddit subreddits or search results.",
-  "type": "object",
-  "schemaVersion": 1,
-  "properties": {
-    "subreddits": {
-      "title": "Subreddits",
-      "type": "array",
-      "description": "Subreddit names to scrape, e.g. 'technology', 'programming'. 'r/technology' and a full subreddit link also work.",
-      "editor": "stringList",
-      "prefill": [
-        "technology",
-        "programming"
-      ]
-    },
-    "searchQueries": {
-      "title": "Search queries",
-      "type": "array",
-      "description": "Search Reddit for keywords. Reddit has been asking for sign-in on its public search feed (November 2026); while that lasts a search query returns nothing and the run reports it. When search answers, score and upvoteRatio are null for its results, because Reddit does not publish vote counts there.",
-      "editor": "stringList"
-    },
-    "postUrls": {
-      "title": "Post URLs",
-      "type": "array",
-      "description": "Links to Reddit posts to scrape comments from. Tracking parameters and links to a single comment are accepted.",
-      "editor": "stringList"
-    },
-    "maxPostsPerSubreddit": {
-      "title": "Max posts per subreddit",
-      "type": "integer",
-      "description": "Maximum number of posts to extract per subreddit.",
-      "default": 100,
-      "minimum": 1,
-      "maximum": 500
-    },
-    "sortBy": {
-      "title": "Sort posts by",
-      "type": "string",
-      "description": "How to sort posts in the subreddit listing.",
-      "editor": "select",
-      "default": "hot",
-      "enum": [
-        "hot",
-        "new",
-        "top",
-        "rising"
-      ]
-    },
-    "timeFilter": {
-      "title": "Time filter (for top sort)",
-      "type": "string",
-      "description": "Time period filter when sorting by top.",
-      "editor": "select",
-      "default": "week",
-      "enum": [
-        "hour",
-        "day",
-        "week",
-        "month",
-        "year",
-        "all"
-      ]
-    },
-    "includeVoteData": {
-      "title": "Include vote data (score, upvote ratio, comment count)",
-      "type": "boolean",
-      "description": "Fetch upvote score, upvote ratio and comment count for subreddit posts. This needs extra requests through residential proxies, so turning it off makes runs noticeably cheaper and faster when you only need titles, authors, dates and post text.",
-      "default": true
-    },
-    "includeComments": {
-      "title": "Include comments",
-      "type": "boolean",
-      "description": "Also extract comments from each post. Reddit does not publish comment scores publicly, so comment score is null.",
-      "default": false
-    },
-    "maxCommentsPerPost": {
-      "title": "Max comments per post",
-      "type": "integer",
-      "description": "Maximum number of comments to extract per post.",
-      "default": 100,
-      "minimum": 1,
-      "maximum": 500
+    "title": "Reddit Scraper Input",
+    "description": "Scrape posts and comments from Reddit subreddits or search results.",
+    "type": "object",
+    "schemaVersion": 1,
+    "properties": {
+        "subreddits": {
+            "title": "Subreddits",
+            "type": "array",
+            "description": "Subreddit names to scrape, e.g. 'technology', 'programming'. 'r/technology' and a full subreddit link also work.",
+            "editor": "stringList",
+            "prefill": [
+                "technology",
+                "programming"
+            ]
+        },
+        "keywords": {
+            "title": "Keywords (filter subreddit posts)",
+            "type": "array",
+            "description": "Optional. Keep only the posts from the subreddits above whose title or text mentions at least one of these words or phrases (whole words, any letter case). Every post read counts towards \"Max posts per subreddit\", but only the matching posts are saved and charged (plus their comments, when comments are switched on). Each saved post lists the keywords it matched. Works with Reddit's public listings, so it is not affected by the search sign-in issue.",
+            "editor": "stringList"
+        },
+        "searchQueries": {
+            "title": "Search queries",
+            "type": "array",
+            "description": "Search Reddit for keywords. Reddit has been asking for sign-in on its public search feed (November 2026); while that lasts a search query returns nothing and the run reports it. When search answers, score and upvoteRatio are null for its results, because Reddit does not publish vote counts there.",
+            "editor": "stringList"
+        },
+        "postUrls": {
+            "title": "Post URLs",
+            "type": "array",
+            "description": "Links to Reddit posts to scrape comments from. Tracking parameters and links to a single comment are accepted.",
+            "editor": "stringList"
+        },
+        "maxPostsPerSubreddit": {
+            "title": "Max posts per subreddit",
+            "type": "integer",
+            "description": "Maximum number of posts to read per subreddit. With a keyword filter this is how many posts are checked; only the matching ones are saved.",
+            "default": 100,
+            "minimum": 1,
+            "maximum": 500
+        },
+        "sortBy": {
+            "title": "Sort posts by",
+            "type": "string",
+            "description": "How to sort posts in the subreddit listing.",
+            "editor": "select",
+            "default": "hot",
+            "enum": [
+                "hot",
+                "new",
+                "top",
+                "rising"
+            ]
+        },
+        "timeFilter": {
+            "title": "Time filter (for top sort)",
+            "type": "string",
+            "description": "Time period filter when sorting by top.",
+            "editor": "select",
+            "default": "week",
+            "enum": [
+                "hour",
+                "day",
+                "week",
+                "month",
+                "year",
+                "all"
+            ]
+        },
+        "includeVoteData": {
+            "title": "Include vote data (score, upvote ratio, comment count)",
+            "type": "boolean",
+            "description": "Fetch upvote score, upvote ratio and comment count for subreddit posts. This needs extra requests through residential proxies, so turning it off makes runs noticeably cheaper and faster when you only need titles, authors, dates and post text.",
+            "default": true
+        },
+        "includeComments": {
+            "title": "Include comments",
+            "type": "boolean",
+            "description": "Also extract comments from each post. Reddit does not publish comment scores publicly, so comment score is null.",
+            "default": false
+        },
+        "maxCommentsPerPost": {
+            "title": "Max comments per post",
+            "type": "integer",
+            "description": "Maximum number of comments to extract per post.",
+            "default": 100,
+            "minimum": 1,
+            "maximum": 500
+        }
     }
-  }
 }

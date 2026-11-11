@@ -10,6 +10,10 @@ Reddit is one of the richest sources of authentic consumer opinion on the intern
 > public search feed, and this Actor does not sign in. While that lasts, a search
 > query returns nothing, and the run says so in its log and status message.
 > Subreddit listings and post URLs are not affected.
+>
+> **To follow a brand or topic meanwhile, use the keyword filter:** list the subreddits
+> where it is discussed, add your words to `keywords`, and the run saves (and charges)
+> only the posts that mention them.
 
 ## What data can you extract?
 
@@ -105,9 +109,10 @@ For a monitoring setup, `sortBy: "new"` with a short `timeFilter` keeps runs sma
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `subreddits` | array | No | `[]` | Subreddit names, e.g., "technology", "programming". `r/technology` and a full subreddit link work too |
+| `keywords` | array | No | `[]` | Keep only subreddit posts whose title or text mentions one of these words or phrases. Only matching posts (and their comments, when comments are on) are saved and charged; each post carries `matchedKeywords` |
 | `searchQueries` | array | No | `[]` | Keywords to search across all of Reddit. See the search availability note above |
 | `postUrls` | array | No | `[]` | Links to Reddit posts to scrape comments from. Tracking parameters and links to a single comment are accepted |
-| `maxPostsPerSubreddit` | integer | No | `100` | Maximum posts to extract per subreddit or search query (1--500) |
+| `maxPostsPerSubreddit` | integer | No | `100` | Maximum posts to read per subreddit (1--500). With `keywords`, this is how many posts are checked |
 | `includeComments` | boolean | No | `false` | Whether to extract comments from each post |
 | `maxCommentsPerPost` | integer | No | `100` | Maximum comments to extract per post (1--500) |
 | `includeVoteData` | boolean | No | `true` | Fetch score, upvote ratio and comment count for subreddit posts. Costs extra residential bandwidth; turn off for cheaper, faster runs when you only need titles, authors, dates and text |

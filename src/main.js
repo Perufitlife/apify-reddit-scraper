@@ -1,7 +1,7 @@
 import { Actor } from 'apify';
 import { RedditClient, parseListing, parseFeed, cursorFor } from './reddit.js';
 import { extractPost, extractComment } from './extractor.js';
-import { subredditName, postPath } from './inputs.js';
+import { subredditName, postPath, keywordMatcher } from './inputs.js';
 
 await Actor.init();
 
@@ -16,7 +16,15 @@ const {
     sortBy = 'hot',
     timeFilter = 'week',
     includeVoteData = true,
+    keywords = [],
 } = input;
+
+// Optional: keep only the subreddit posts that mention one of these words or phrases.
+const matchKeywords = keywordMatcher(keywords);
+let scannedPosts = 0;
+if (matchKeywords && !subreddits.length) {
+    console.warn('"keywords" filters subreddit posts, and no subreddit was given: the filter is not applied to search queries or post URLs.');
+}
 
 if (!subreddits.length && !searchQueries.length && !postUrls.length) {
     throw new Error('Provide at least one subreddit, search query, or post URL.');
@@ -128,17 +136,34 @@ async function scrapeSubreddit(subreddit, limit) {
         after = page[page.length - 1].id;
     }
 
-    // Posts that came through the listing endpoint already carry their votes.
-    if (includeVoteData && posts.some((p) => p.score === null)) await enrichVotes(subreddit, sort, t, posts);
+    // With a keyword filter, every post read is checked and only the matches are kept.
+    const read = posts.length;
+    scannedPosts += read;
+    let kept = posts;
+    if (matchKeywords) {
+        kept = [];
+        for (const [index, post] of posts.entries()) {
+            post.listPosition = index;
+            // Checked against the text as it is saved, so a row always contains what it matched.
+            const found = matchKeywords(`${post.title} ${String(post.body ?? '').replace(/\s+/g, ' ').trim().substring(0, 5000)}`);
+            if (found.length) { post.matchedKeywords = found; kept.push(post); }
+        }
+        console.log(`r/${subreddit}: ${kept.length} of ${read} posts mention the keywords.`);
+    }
 
-    for (const post of posts) {
-        await Actor.pushData(extractPost(post));
+    // Posts that came through the listing endpoint already carry their votes.
+    if (includeVoteData && kept.some((p) => p.score === null)) await enrichVotes(subreddit, sort, t, kept, matchKeywords && kept.length ? kept[kept.length - 1].listPosition + 1 : 0);
+
+    for (const post of kept) {
+        const row = extractPost(post);
+        if (matchKeywords) row.matchedKeywords = post.matchedKeywords;
+        await Actor.pushData(row);
         pushedPosts++;
         if (includeComments) await scrapeComments(post.permalink, post.title, post.subreddit, commentLimit);
     }
 
-    console.log(`Done r/${subreddit}: ${posts.length} posts.`);
-    if (!posts.length) failures.push(`r/${subreddit} returned no posts`);
+    console.log(`Done r/${subreddit}: ${kept.length} posts.`);
+    if (!read) failures.push(`r/${subreddit} returned no posts`);
 }
 
 /**
@@ -183,7 +208,7 @@ async function listingFallback(subreddit, sort, t, limit, posts, seen) {
 }
 
 /** Fill score / upvoteRatio / commentCount from the shreddit feed, matched by post id. */
-async function enrichVotes(subreddit, sort, t, posts) {
+async function enrichVotes(subreddit, sort, t, posts, listDepth = 0) {
     // The listing endpoint answers for one community at a time, never for "a+b".
     if (subreddit.includes('+')) {
         console.log('  Vote data is not available for combined subreddits (a+b); scrape them separately to get it.');
@@ -191,7 +216,8 @@ async function enrichVotes(subreddit, sort, t, posts) {
     }
     const missing = posts.filter((p) => p.score === null);
     const wanted = new Map(missing.map((p) => [p.id, p]));
-    const maxPages = Math.min(14, Math.ceil(missing.length / 20) + 2);
+    // With a keyword filter the kept posts are spread through the listing: read as deep as the last one.
+    const maxPages = Math.min(14, Math.ceil(Math.max(missing.length, listDepth) / 20) + 2);
     let after = null;
     let filled = 0;
 
@@ -256,7 +282,7 @@ async function scrapeSearch(query, limit) {
         xml = await client.get(`https://www.reddit.com/search.rss?${params}`, '<entry>', { maxAttempts: 3 });
     } catch (err) {
         if (!/HTTP 403/.test(err.message)) throw err;
-        const why = 'Reddit refused the search request (HTTP 403). Its public search feed has been asking for sign-in lately; subreddit and post URL inputs are not affected';
+        const why = 'Reddit refused the search request (HTTP 403). Its public search feed has been asking for sign-in lately; subreddit and post URL inputs are not affected. To follow a topic meanwhile, list the subreddits where it is discussed and add "keywords"';
         console.warn(`Search "${query}": ${why}.`);
         failures.push(`search "${query}": ${why}`);
         return;
@@ -396,6 +422,16 @@ for (const url of postUrls) {
 const total = pushedPosts + pushedComments;
 console.log(`Reddit scraper finished: ${pushedPosts} posts, ${pushedComments} comments (${total} results). `
     + `${client.requests} HTTP requests, ${client.blockedResponses} blocked responses retried.`);
+
+// A keyword filter that matched nothing is an answer, not a failure: the posts were
+// read and none of them mention the keywords. No result is charged for it.
+if (total === 0 && matchKeywords && scannedPosts > 0) {
+    const note = `0 results: read ${scannedPosts} posts and none mention the keywords. `
+        + 'Try more subreddits, a higher "Max posts per subreddit", or sort by "new".'
+        + (failures.length ? ` Also: ${failures.join('; ')}` : '');
+    console.warn(note);
+    await Actor.exit(note.slice(0, 900));
+}
 
 // Never exit "successfully" with an empty dataset — that is what let this Actor
 // charge users for nothing. A run that produced no data must fail loudly.

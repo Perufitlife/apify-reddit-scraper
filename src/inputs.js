@@ -50,3 +50,57 @@ export function postPath(text) {
     const sub = m[1].match(/^r\/([^/]+)\//);
     return { path: `/${m[1]}`, subreddit: sub ? sub[1] : '' };
 }
+
+/**
+ * Keyword filter for posts. A keyword matches when it appears as a whole word or
+ * phrase, in any letter case: "ai" matches "AI tools" but not "said".
+ *
+ * @param {unknown[]} list words or phrases
+ * @returns {null | ((text: string) => string[])} null when there is nothing to
+ * filter by; otherwise a function that returns the keywords found in a text.
+ */
+export function keywordMatcher(list) {
+    const words = [];
+    // A single text is read as a list separated by commas or line breaks.
+    const items = typeof list === 'string' ? list.split(/[,\n]/) : (Array.isArray(list) ? list : []);
+    for (const item of items) {
+        const word = String(item ?? '').trim().replace(/\s+/g, ' ');
+        if (word && !words.some((w) => w.toLowerCase() === word.toLowerCase())) words.push(word);
+    }
+    if (!words.length) return null;
+
+    const isWordChar = (ch) => ch !== undefined && /[\p{L}\p{N}_]/u.test(ch);
+    const lowered = words.map((w) => w.toLowerCase());
+
+    return (text) => {
+        const hay = String(text ?? '').replace(/\s+/g, ' ').toLowerCase();
+        const found = [];
+        lowered.forEach((needle, i) => {
+            let from = 0;
+            while (from <= hay.length) {
+                const at = hay.indexOf(needle, from);
+                if (at === -1) break;
+                // A keyword that itself starts or ends with punctuation ("c++", ".net") has no word edge there.
+                const startOk = !isWordChar(needle[0]) || !isWordChar(hay[at - 1]);
+                const endOk = !isWordChar(needle[needle.length - 1]) || !isWordChar(hay[at + needle.length]);
+                if (startOk && endOk) { found.push(words[i]); break; }
+                from = at + 1;
+            }
+        });
+        return found;
+    };
+}
+
+/** Text as a reader sees it: no tags, entities decoded, single spaces. */
+export function plainText(html) {
+    return String(html ?? '')
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;|&apos;/g, "'")
+        .replace(/\s+/g, ' ')
+        .trim();
+}
