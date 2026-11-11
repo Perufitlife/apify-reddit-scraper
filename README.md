@@ -17,11 +17,10 @@ Reddit is one of the richest sources of authentic consumer opinion on the intern
 
 ## What data can you extract?
 
-> **Field availability, stated up front.** Reddit publishes vote data on subreddit
-> listings but not in its public search or comment feeds. So `score`, `upvoteRatio`
-> and `commentCount` are populated for **subreddit posts**, and are `null` for
-> **search results** and **comments** — `null` means "Reddit does not publish it",
-> not "zero". Post `body` is filled for self/text posts; link posts have no body by
+> **Field availability, stated up front.** `score`, `upvoteRatio` and `commentCount`
+> are populated for **subreddit posts** and are `null` for **search results**.
+> **Comments carry their own `score`**, plus `depth` and `parentId`, so a thread can be
+> rebuilt as a tree. `null` means "Reddit did not publish it", not "zero". Post `body` is filled for self/text posts; link posts have no body by
 > definition. This Actor requires Apify **residential proxies**: Reddit refuses
 > datacenter IPs on every public endpoint.
 
@@ -55,12 +54,17 @@ Reddit is one of the richest sources of authentic consumer opinion on the intern
 | `redditId` | string | Reddit fullname, e.g. `t1_p4fu45x` |
 | `author` | string | Username of the comment author |
 | `body` | string | Full text of the comment |
-| `score` | integer \| null | Always `null` — Reddit does not publish comment scores in its public comment feed |
-| `depth` | integer | Nesting level (0 = top-level reply, 1 = reply to a reply, etc.) |
+| `score` | integer \| null | Net upvote score of the comment. `null` when Reddit hides it, on a deleted comment, or when the thread page could not be read and the run fell back to the comment feed (the log says so) |
+| `depth` | integer | Nesting level (0 = top-level comment, 1 = reply to it, etc.) |
+| `parentId` | string | `redditId` of the comment this one replies to. Empty for top-level comments |
+| `url` | string | Link to the comment itself |
+| `subreddit` | string | Subreddit of the thread |
 | `createdUtc` | string | UTC timestamp of when the comment was posted |
 | `postTitle` | string | Title of the parent post |
 | `postUrl` | string | Permalink to the parent post |
 | `scrapedAt` | string | ISO 8601 timestamp of when the data was collected |
+
+Comments come in the order Reddit shows the thread sorted by top: each top-level comment followed by the replies shown under it. Up to 500 per post. Reply chains that Reddit folds behind "more replies" are not opened, and a link to a single comment returns that conversation from the comment feed, without votes.
 
 ## Use cases
 
@@ -149,6 +153,8 @@ At least one subreddit, search query, or post URL must be provided.
     "body": "Honestly, it depends on what you want to do. For web development, JavaScript/TypeScript is still king. For data science and ML, Python is non-negotiable. For enterprise backend work, Java and Go are in very high demand.",
     "score": 892,
     "depth": 0,
+    "parentId": "",
+    "url": "https://www.reddit.com/r/programming/comments/abc123/comment/def456/",
     "createdUtc": "2026-02-28T16:15:00Z",
     "postTitle": "What's the best programming language to learn in 2026?",
     "postUrl": "https://old.reddit.com/r/programming/comments/abc123/whats_the_best_programming_language/",
@@ -178,7 +184,7 @@ Enter one or more subreddit names, choose a sort order (`hot`, `new`, `top`, or 
 No. There is no Reddit API key, OAuth app, or login to manage. You just provide subreddits, search queries, or post URLs and the actor returns the public data directly.
 
 **Why use this instead of the official Reddit API?**
-The official Reddit API now has strict rate limits, paid access tiers, and approval requirements that make large-scale or commercial scraping painful. This actor needs no API credentials, has no per-app rate-limit ceiling to manage, and lets you scrape posts plus full comment trees across many subreddits in one run.
+The official Reddit API now has strict rate limits, paid access tiers, and approval requirements that make large-scale or commercial scraping painful. This actor needs no API credentials, has no per-app rate-limit ceiling to manage, and lets you scrape posts plus their comment threads across many subreddits in one run.
 
 **What is a good Reddit API alternative for sentiment analysis?**
 This actor is a practical Reddit API alternative for sentiment and market research: it pulls posts and comment text (with upvote scores and depth) ready to feed straight into NLP or LLM pipelines, without the cost and quota headaches of the official API.

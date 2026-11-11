@@ -77,13 +77,13 @@
         "includeComments": {
             "title": "Include comments",
             "type": "boolean",
-            "description": "Also extract comments from each post. Reddit does not publish comment scores publicly, so comment score is null.",
+            "description": "Also extract the comments of each post, with their upvote score, their depth in the thread and the comment they reply to.",
             "default": false
         },
         "maxCommentsPerPost": {
             "title": "Max comments per post",
             "type": "integer",
-            "description": "Maximum number of comments to extract per post.",
+            "description": "Maximum number of comments to extract per post (up to 500), in the order Reddit shows the thread sorted by top: each top-level comment followed by its replies.",
             "default": 100,
             "minimum": 1,
             "maximum": 500

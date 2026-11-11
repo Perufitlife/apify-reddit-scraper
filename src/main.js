@@ -2,6 +2,7 @@ import { Actor } from 'apify';
 import { RedditClient, parseListing, parseFeed, cursorFor } from './reddit.js';
 import { extractPost, extractComment } from './extractor.js';
 import { subredditName, postPath, keywordMatcher } from './inputs.js';
+import { parseThreadPiece, threadKey } from './comments.js';
 
 await Actor.init();
 
@@ -323,32 +324,28 @@ async function scrapeSearch(query, limit) {
 }
 
 /* ------------------------------------------------------------------ *
- * Comments — Atom feed of a post's thread.
+ * Comments — the thread as Reddit's page renders it (votes, depth, parent),
+ * with the thread's Atom feed as the fallback.
  * ------------------------------------------------------------------ */
 
-async function scrapeComments(permalink, postTitle, subreddit, limit, subredditFromLink = '') {
-    const clean = `/${permalink.replace(/^https?:\/\/[^/]+/, '').replace(/^\/+|\/+$/g, '')}`;
+/** The thread's feed: up to 100 top-level comments, no votes. Also names the thread. */
+async function readFeed(clean, limit) {
     const url = `https://www.reddit.com${clean}/.rss?limit=${Math.min(limit, 100)}&sort=top`;
-
     let xml;
     try {
         xml = await client.get(url, '<entry>');
     } catch (err) {
-        console.log(`  Comments unavailable for ${clean}: ${err.message}`);
         return { found: false, reason: err.message };
     }
     if (!xml) return { found: false, reason: 'Reddit answered "not found" — the post may be deleted, private or mistyped' };
 
-    const postUrl = `https://www.reddit.com${clean}`;
     const entries = parseFeed(xml);
-    // The thread feed carries the post itself; it names the thread when the caller could not.
     const thread = entries.find((e) => e.id.startsWith('t3_'));
-    postTitle = postTitle || thread?.title || '';
-    subreddit = subreddit || thread?.subreddit || subredditFromLink;
-    const comments = entries.filter((e) => e.id.startsWith('t1_')).slice(0, limit);
-
-    for (const c of comments) {
-        await Actor.pushData(extractComment({
+    return {
+        found: true,
+        title: thread?.title || '',
+        subreddit: thread?.subreddit || '',
+        comments: entries.filter((e) => e.id.startsWith('t1_')).map((c) => ({
             id: c.id,
             author: c.author,
             body: c.content,
@@ -356,12 +353,115 @@ async function scrapeComments(permalink, postTitle, subreddit, limit, subredditF
             createdUtc: c.updated ? new Date(c.updated).toISOString() : '',
             depth: 0,
             parentId: '',
-            subreddit,
-        }, postTitle, postUrl));
+        })),
+    };
+}
+
+/**
+ * The thread page, piece by piece, until `limit` comments are collected or the
+ * thread runs out. A piece that fails ends the walk; what was read is kept.
+ * @returns {Promise<object[] | null>} null when the page could not be read at all.
+ */
+async function readThread(key, limit) {
+    const first = `https://www.reddit.com/svc/shreddit/comments/r/${key.subreddit}/t3_${key.postId}?render-mode=partial&sort=top`;
+    let html;
+    try {
+        html = await client.get(first, '<shreddit-comment-tree', { maxAttempts: 4 });
+    } catch (err) {
+        console.log(`  Thread page unavailable (${err.message.slice(0, 120)}) — using the feed.`);
+        return null;
+    }
+    if (!html) return null;
+
+    const seen = new Set();
+    const comments = [];
+    const take = (piece) => {
+        let added = 0;
+        for (const c of piece.comments) {
+            if (seen.has(c.id)) continue;
+            seen.add(c.id);
+            comments.push(c);
+            added++;
+        }
+        return added;
+    };
+
+    let piece = parseThreadPiece(html);
+    take(piece);
+
+    // Each further piece brings about ten comments.
+    const maxPieces = Math.ceil(limit / 5) + 2;
+    for (let n = 0; n < maxPieces && comments.length < limit && piece.next; n++) {
+        let more;
+        try {
+            more = await client.get(`https://www.reddit.com${piece.next.path}`, '', {
+                maxAttempts: 3,
+                form: { cursor: piece.next.cursor },
+            });
+        } catch (err) {
+            console.log(`  Stopped at ${comments.length} comments: the next part of the thread did not load.`);
+            break;
+        }
+        if (!more) break;
+        piece = parseThreadPiece(more);
+        if (!take(piece)) break;
+    }
+
+    return comments.slice(0, limit);
+}
+
+async function scrapeComments(permalink, postTitle, subreddit, limit, subredditFromLink = '') {
+    const clean = `/${permalink.replace(/^https?:\/\/[^/]+/, '').replace(/^\/+|\/+$/g, '')}`;
+    const postUrl = `https://www.reddit.com${clean}`;
+    const key = threadKey(clean);
+
+    // A bare post link carries no title: the feed names the thread (and tells a missing post apart).
+    let feed = null;
+    let feedFailure = null;
+    if (!postTitle || !key) {
+        feed = await readFeed(clean, limit);
+        if (!feed.found) {
+            // "Not found" is final. Any other failure of the feed still leaves the thread page to try.
+            if (!key || /not found/.test(feed.reason)) {
+                console.log(`  Comments unavailable for ${clean}: ${feed.reason}`);
+                return feed;
+            }
+            feedFailure = feed;
+            feed = null;
+        } else {
+            postTitle = postTitle || feed.title;
+            subreddit = subreddit || feed.subreddit;
+        }
+    }
+    subreddit = subreddit || subredditFromLink || key?.subreddit || '';
+
+    // A link to one comment is a request for that conversation, which only the feed serves.
+    const singleComment = /\/comments\/[A-Za-z0-9]+\/[^/]+\/[A-Za-z0-9]+$/.test(clean);
+
+    let comments = key && !singleComment ? await readThread(key, limit) : null;
+    let source = 'thread page';
+    // Nothing from the thread page (unreadable, or read as empty): the feed decides.
+    if (!comments || !comments.length) {
+        feed = feed ?? feedFailure ?? await readFeed(clean, limit);
+        if (!feed.found) {
+            if (!comments) {
+                console.log(`  Comments unavailable for ${clean}: ${feed.reason}`);
+                return feed;
+            }
+        } else if (feed.comments.length || !comments) {
+            comments = feed.comments.slice(0, limit);
+            source = 'feed, without votes';
+        }
+    } else if (comments.length < limit) {
+        console.log(`  ${clean}: the thread shows ${comments.length} comments; replies folded behind "more replies" are not opened.`);
+    }
+
+    for (const c of comments) {
+        await Actor.pushData(extractComment({ ...c, subreddit }, postTitle, postUrl));
         pushedComments++;
     }
 
-    console.log(`  ${comments.length} comments from ${clean}`);
+    console.log(`  ${comments.length} comments from ${clean} (${source})`);
     return { found: true, comments: comments.length };
 }
 

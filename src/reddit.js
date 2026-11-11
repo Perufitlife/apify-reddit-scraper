@@ -48,7 +48,7 @@ export class RedditClient {
      * @param {string} url
      * @param {string} marker substring that proves we got a real page
      */
-    async get(url, marker, { maxAttempts = this.maxAttempts } = {}) {
+    async get(url, marker, { maxAttempts = this.maxAttempts, form = null } = {}) {
         let lastReason = 'unknown';
 
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -71,7 +71,10 @@ export class RedditClient {
                 this.requests++;
                 const res = await undiciFetch(url, {
                     ...(agent ? { dispatcher: agent } : {}),
+                    // The "more comments" control of a thread is a plain form post.
+                    ...(form ? { method: 'POST', body: new URLSearchParams(form).toString() } : {}),
                     headers: {
+                        ...(form ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}),
                         'User-Agent': UA,
                         Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
                         'Accept-Language': 'en-US,en;q=0.9',

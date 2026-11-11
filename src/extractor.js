@@ -44,7 +44,8 @@ export function extractComment(rawComment, postTitle, postUrl) {
         upvoteRatio: null,
         commentCount: 0,
         body: clean(rawComment.body).substring(0, 5000),
-        url: '',
+        // Link to the comment itself, when the thread page gave one.
+        url: rawComment.url || '',
         postUrl: postUrl || '',
         createdUtc: rawComment.createdUtc || '',
         flair: '',
