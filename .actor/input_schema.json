@@ -7,7 +7,7 @@
     "subreddits": {
       "title": "Subreddits",
       "type": "array",
-      "description": "Subreddit names to scrape (without r/). E.g., 'technology', 'programming'.",
+      "description": "Subreddit names to scrape, e.g. 'technology', 'programming'. 'r/technology' and a full subreddit link also work.",
       "editor": "stringList",
       "prefill": [
         "technology",
@@ -17,13 +17,13 @@
     "searchQueries": {
       "title": "Search queries",
       "type": "array",
-      "description": "Search Reddit for keywords. Note: Reddit does not publish vote counts in its public search feed, so score and upvoteRatio are null for search results (subreddit listings do include them).",
+      "description": "Search Reddit for keywords. Reddit has been asking for sign-in on its public search feed (November 2026); while that lasts a search query returns nothing and the run reports it. When search answers, score and upvoteRatio are null for its results, because Reddit does not publish vote counts there.",
       "editor": "stringList"
     },
     "postUrls": {
       "title": "Post URLs",
       "type": "array",
-      "description": "Direct Reddit post URLs to scrape comments from.",
+      "description": "Links to Reddit posts to scrape comments from. Tracking parameters and links to a single comment are accepted.",
       "editor": "stringList"
     },
     "maxPostsPerSubreddit": {

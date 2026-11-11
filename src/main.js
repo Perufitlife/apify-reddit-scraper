@@ -1,6 +1,7 @@
 import { Actor } from 'apify';
 import { RedditClient, parseListing, parseFeed, cursorFor } from './reddit.js';
 import { extractPost, extractComment } from './extractor.js';
+import { subredditName, postPath } from './inputs.js';
 
 await Actor.init();
 
@@ -183,6 +184,11 @@ async function listingFallback(subreddit, sort, t, limit, posts, seen) {
 
 /** Fill score / upvoteRatio / commentCount from the shreddit feed, matched by post id. */
 async function enrichVotes(subreddit, sort, t, posts) {
+    // The listing endpoint answers for one community at a time, never for "a+b".
+    if (subreddit.includes('+')) {
+        console.log('  Vote data is not available for combined subreddits (a+b); scrape them separately to get it.');
+        return;
+    }
     const missing = posts.filter((p) => p.score === null);
     const wanted = new Map(missing.map((p) => [p.id, p]));
     const maxPages = Math.min(14, Math.ceil(missing.length / 20) + 2);
@@ -243,7 +249,18 @@ async function scrapeSearch(query, limit) {
     });
 
     console.log(`Searching "${query}"...`);
-    const xml = await client.get(`https://www.reddit.com/search.rss?${params}`, '<entry>');
+    let xml;
+    try {
+        // Three attempts, not eight: when Reddit refuses search it refuses every attempt, and
+        // the other inputs of the run should not wait a minute for an answer that will not come.
+        xml = await client.get(`https://www.reddit.com/search.rss?${params}`, '<entry>', { maxAttempts: 3 });
+    } catch (err) {
+        if (!/HTTP 403/.test(err.message)) throw err;
+        const why = 'Reddit refused the search request (HTTP 403). Its public search feed has been asking for sign-in lately; subreddit and post URL inputs are not affected';
+        console.warn(`Search "${query}": ${why}.`);
+        failures.push(`search "${query}": ${why}`);
+        return;
+    }
     if (!xml) { failures.push(`search "${query}" returned nothing`); return; }
 
     // Feeds mix in subreddit hits (t5_) alongside posts (t3_).
@@ -283,7 +300,7 @@ async function scrapeSearch(query, limit) {
  * Comments — Atom feed of a post's thread.
  * ------------------------------------------------------------------ */
 
-async function scrapeComments(permalink, postTitle, subreddit, limit) {
+async function scrapeComments(permalink, postTitle, subreddit, limit, subredditFromLink = '') {
     const clean = `/${permalink.replace(/^https?:\/\/[^/]+/, '').replace(/^\/+|\/+$/g, '')}`;
     const url = `https://www.reddit.com${clean}/.rss?limit=${Math.min(limit, 100)}&sort=top`;
 
@@ -292,12 +309,17 @@ async function scrapeComments(permalink, postTitle, subreddit, limit) {
         xml = await client.get(url, '<entry>');
     } catch (err) {
         console.log(`  Comments unavailable for ${clean}: ${err.message}`);
-        return;
+        return { found: false, reason: err.message };
     }
-    if (!xml) return;
+    if (!xml) return { found: false, reason: 'Reddit answered "not found" — the post may be deleted, private or mistyped' };
 
     const postUrl = `https://www.reddit.com${clean}`;
-    const comments = parseFeed(xml).filter((e) => e.id.startsWith('t1_')).slice(0, limit);
+    const entries = parseFeed(xml);
+    // The thread feed carries the post itself; it names the thread when the caller could not.
+    const thread = entries.find((e) => e.id.startsWith('t3_'));
+    postTitle = postTitle || thread?.title || '';
+    subreddit = subreddit || thread?.subreddit || subredditFromLink;
+    const comments = entries.filter((e) => e.id.startsWith('t1_')).slice(0, limit);
 
     for (const c of comments) {
         await Actor.pushData(extractComment({
@@ -314,13 +336,25 @@ async function scrapeComments(permalink, postTitle, subreddit, limit) {
     }
 
     console.log(`  ${comments.length} comments from ${clean}`);
+    return { found: true, comments: comments.length };
 }
 
 /* ------------------------------------------------------------------ */
 
+const subredditNames = [];
 for (const sub of subreddits) {
-    const name = String(sub).trim().replace(/^\/?r\//, '').replace(/\/$/, '');
-    if (!name) continue;
+    const raw = String(sub ?? '').trim();
+    if (!raw) continue;
+    const name = subredditName(raw);
+    if (!name) {
+        console.warn(`"${raw}" is not a subreddit name or subreddit link — skipped. Use a name such as "technology".`);
+        failures.push(`"${raw}" is not a subreddit`);
+        continue;
+    }
+    if (!subredditNames.some((n) => n.toLowerCase() === name.toLowerCase())) subredditNames.push(name);
+}
+
+for (const name of subredditNames) {
     try {
         await scrapeSubreddit(name, postLimit);
     } catch (err) {
@@ -343,8 +377,16 @@ for (const q of searchQueries) {
 for (const url of postUrls) {
     const raw = String(url).trim();
     if (!raw) continue;
+    const post = postPath(raw);
+    if (!post) {
+        console.warn(`"${raw}" is not a link to a Reddit post — skipped. Expected something like https://www.reddit.com/r/technology/comments/abc123/title/`);
+        failures.push(`"${raw}" is not a post link`);
+        continue;
+    }
     try {
-        await scrapeComments(raw, '', '', commentLimit);
+        const result = await scrapeComments(post.path, '', '', commentLimit, post.subreddit);
+        if (!result.found) failures.push(`post ${raw}: ${result.reason}`);
+        else if (!result.comments) console.log(`Post ${raw} has no comments.`);
     } catch (err) {
         console.error(`Post ${raw} failed: ${err.message}`);
         failures.push(`post ${raw}: ${err.message}`);
@@ -362,6 +404,13 @@ if (total === 0) {
         `No results were extracted. ${failures.length ? `Details: ${failures.join('; ')}. ` : ''}`
         + 'Check that the subreddits exist and are public, and that residential proxies are available on your account.',
     );
+}
+
+// Some inputs worked and some did not: a green run must still say which ones gave nothing.
+if (failures.length) {
+    const note = `${total} results. ${failures.length} issue(s): ${failures.join('; ')}`.slice(0, 900);
+    console.warn(note);
+    await Actor.exit(note);
 }
 
 await Actor.exit();

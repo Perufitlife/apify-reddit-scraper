@@ -6,6 +6,11 @@ Turn Reddit into a structured dataset. This scraper collects posts and comments 
 
 Reddit is one of the richest sources of authentic consumer opinion on the internet. Whether you are running market research, building a sentiment analysis pipeline, scouting content ideas, or monitoring brand mentions, this actor gives you programmatic access to the conversations that matter -- without API key management. Runs through Apify residential proxies, which Reddit requires.
 
+> **Search availability (November 2026).** Reddit has been asking for sign-in on its
+> public search feed, and this Actor does not sign in. While that lasts, a search
+> query returns nothing, and the run says so in its log and status message.
+> Subreddit listings and post URLs are not affected.
+
 ## What data can you extract?
 
 > **Field availability, stated up front.** Reddit publishes vote data on subreddit
@@ -89,7 +94,7 @@ Sort by `commentCount` descending, read the top twenty `body` fields, and you ha
 
 ## Monitoring a subreddit for product feedback
 
-Pass `searchQueries` with your brand, your competitors, or the problem you solve, and schedule the run.
+Pass the subreddits where your customers talk, sort by `new`, and schedule the run. When Reddit's search feed is answering (see the search availability note above), `searchQueries` with your brand, your competitors, or the problem you solve widens that to all of Reddit.
 
 Because `createdUtc` and `redditId` come back on every row, deduplicating against your last run is a one-line join: anything with an id you have not seen is new. That turns a scheduled run into a feedback stream rather than a repeated dump.
 
@@ -99,9 +104,9 @@ For a monitoring setup, `sortBy: "new"` with a short `timeFilter` keeps runs sma
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `subreddits` | array | No | `[]` | Subreddit names to scrape (without `r/`), e.g., "technology", "programming" |
-| `searchQueries` | array | No | `[]` | Keywords to search across all of Reddit |
-| `postUrls` | array | No | `[]` | Direct Reddit post URLs to scrape comments from |
+| `subreddits` | array | No | `[]` | Subreddit names, e.g., "technology", "programming". `r/technology` and a full subreddit link work too |
+| `searchQueries` | array | No | `[]` | Keywords to search across all of Reddit. See the search availability note above |
+| `postUrls` | array | No | `[]` | Links to Reddit posts to scrape comments from. Tracking parameters and links to a single comment are accepted |
 | `maxPostsPerSubreddit` | integer | No | `100` | Maximum posts to extract per subreddit or search query (1--500) |
 | `includeComments` | boolean | No | `false` | Whether to extract comments from each post |
 | `maxCommentsPerPost` | integer | No | `100` | Maximum comments to extract per post (1--500) |
@@ -154,7 +159,7 @@ There are no monthly subscriptions or minimum commitments. You only pay for the 
 
 ## Tips and tricks
 
-- **Use search queries for broad research.** Subreddit scraping is best for focused communities. If you want to find every mention of a brand or topic across all of Reddit, use the `searchQueries` input instead.
+- **Use search queries for broad research.** Subreddit scraping is best for focused communities. To look for a brand or topic across all of Reddit there is the `searchQueries` input, which depends on Reddit's public search feed (see the search availability note above).
 - **Enable comments selectively.** Comments multiply the number of results quickly. If you only need post-level data (titles, scores, dates), leave `includeComments` set to `false` to keep costs low and runs fast.
 - **Sort by "top" for high-signal data.** When researching popular opinions or frequently recommended products, sort by `top` with a time filter of `month` or `year` to surface the most upvoted content.
 - **NSFW subreddits are supported.** The scraper handles Reddit's age verification prompts automatically, so you can scrape any publicly accessible subreddit.
@@ -162,7 +167,7 @@ There are no monthly subscriptions or minimum commitments. You only pay for the 
 ## FAQ
 
 **How do I scrape Reddit posts and comments from a subreddit?**
-Enter one or more subreddit names (without `r/`), choose a sort order (`hot`, `new`, `top`, or `rising`), set how many posts you want, and optionally enable comments. The scraper returns titles, authors, upvote scores, body text, timestamps, and flair as a clean dataset you can export to JSON, CSV, or Excel.
+Enter one or more subreddit names, choose a sort order (`hot`, `new`, `top`, or `rising`), set how many posts you want, and optionally enable comments. The scraper returns titles, authors, upvote scores, body text, timestamps, and flair as a clean dataset you can export to JSON, CSV, or Excel.
 
 **Do I need an API key or Reddit account to use this Reddit scraper?**
 No. There is no Reddit API key, OAuth app, or login to manage. You just provide subreddits, search queries, or post URLs and the actor returns the public data directly.
@@ -174,14 +179,14 @@ The official Reddit API now has strict rate limits, paid access tiers, and appro
 This actor is a practical Reddit API alternative for sentiment and market research: it pulls posts and comment text (with upvote scores and depth) ready to feed straight into NLP or LLM pipelines, without the cost and quota headaches of the official API.
 
 **Can I use this for sentiment analysis and brand monitoring?**
-Yes. Use `searchQueries` to find every mention of a brand, product, or topic across all of Reddit, enable comments, and feed the post and comment text into your sentiment model. Sort by `top` with a `month` or `year` time filter to surface the highest-signal opinions.
+Yes. Scrape the subreddits where the brand, product, or topic is discussed (and add `searchQueries` when Reddit's search feed is answering, see the note above), enable comments, and feed the post and comment text into your sentiment model. Sort by `top` with a `month` or `year` time filter to surface the highest-signal opinions.
 
 **Is scraping public Reddit data legal?**
 This tool collects only publicly accessible posts and comments. You are responsible for complying with Reddit's terms, applicable laws such as GDPR and CCPA, and using the data ethically. Avoid collecting personal data without a lawful basis.
 
 ## Automate it
 
-Add this Reddit scraper to an Apify **Schedule** to monitor a subreddit, search query, or brand mention automatically every day or week — ideal for ongoing sentiment tracking and competitive intelligence. Connect the output to **Make, n8n, Zapier, Google Sheets, Slack, or a webhook** through Apify integrations so new posts and comments flow straight into your dashboards, alerts, or NLP pipeline. Recurring runs keep your sentiment dataset continuously fresh.
+Add this Reddit scraper to an Apify **Schedule** to monitor a subreddit or a set of threads automatically every day or week — ideal for ongoing sentiment tracking and competitive intelligence. Connect the output to **Make, n8n, Zapier, Google Sheets, Slack, or a webhook** through Apify integrations so new posts and comments flow straight into your dashboards, alerts, or NLP pipeline. Recurring runs keep your sentiment dataset continuously fresh.
 
 ## Related actors
 
