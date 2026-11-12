@@ -229,8 +229,10 @@ async function enrichVotes(subreddit, sort, t, posts, listDepth = 0) {
 
         let html;
         try {
-            html = await client.get(`https://www.reddit.com/svc/shreddit/community-more-posts/${sort}/?${params}`, '<shreddit-post');
+            html = await client.get(`https://www.reddit.com/svc/shreddit/community-more-posts/${sort}/?${params}`, '<shreddit-post', { maxAttempts: 3 });
         } catch (err) {
+            // Three attempts, not eight: when Reddit refuses this page it refuses every attempt,
+            // and the posts are already collected. Waiting longer only makes the run slower.
             // Vote data is a bonus; never let it sink a run that already has posts.
             console.log(`  Vote enrichment stopped: ${err.message}`);
             break;

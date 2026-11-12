@@ -17,6 +17,14 @@ Reddit is one of the richest sources of authentic consumer opinion on the intern
 
 ## What data can you extract?
 
+> **Status, 12 November 2026.** Reddit is currently refusing the pages this Actor reads vote
+> counts and full comment threads from. Until that changes, runs still deliver every post with
+> its title, author, date and link (and the text of self posts), but `score` and `upvoteRatio`
+> come back `null`, `commentCount` comes back `0`, and `flair`, `domain` and `postType` are
+> empty. Comments are limited to 100 per post, without `score`, `depth` or `parentId`. The run
+> log says when this happened. While this note is here it takes precedence over the field
+> descriptions, limits and examples below. It will be removed when the data is back.
+
 > **Field availability, stated up front.** `score`, `upvoteRatio` and `commentCount`
 > are populated for **subreddit posts** and are `null` for **search results**.
 > **Comments carry their own `score`**, plus `depth` and `parentId`, so a thread can be
